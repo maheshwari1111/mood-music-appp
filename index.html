@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simple Snake Game</title>
+  <style>
+    :root{--bg:#0f1720;--panel:#0b1220;--accent:#22c55e;--muted:#94a3b8}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,"Noto Sans",sans-serif;background:var(--bg);color:#e6eef6}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);padding:18px;border-radius:12px;box-shadow:0 6px 20px rgba(2,6,23,0.6);display:flex;gap:18px;align-items:center}
+    canvas{background:linear-gradient(180deg,#021024,#031a2b);border-radius:8px;display:block}
+    .ui{display:flex;flex-direction:column;gap:10px}
+    h1{font-size:18px;margin:0 0 6px 0}
+    .row{display:flex;gap:8px;align-items:center}
+    button{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:8px;color:#e6eef6;cursor:pointer}
+    button:hover{border-color:rgba(255,255,255,0.12)}
+    .muted{color:var(--muted);font-size:13px}
+    .score{font-weight:700;color:var(--accent)}
+    .kbd{font-size:12px;padding:6px 8px;background:rgba(255,255,255,0.02);border-radius:6px}
+    @media(max-width:700px){.card{flex-direction:column}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <canvas id="game" width="420" height="420"></canvas>
+      <div class="ui">
+        <h1>Snake Game — Simple</h1>
+        <div class="row"><div class="muted">Score:</div><div class="score" id="score">0</div></div>
+        <div class="row"><div class="muted">Speed:</div><div id="speed" class="muted">7</div></div>
+        <div class="row"><button id="start">Start / Restart</button><button id="pause">Pause</button></div>
+        <div class="muted">Use arrow keys or W A S D to move. On mobile, tap Start and swipe.</div>
+        <div class="muted">Made for demo — edit index.html to customize.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Basic snake game using canvas
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const speedEl = document.getElementById('speed');
+    const startBtn = document.getElementById('start');
+    const pauseBtn = document.getElementById('pause');
+
+    const grid = 20; // size of each cell in px
+    const cols = canvas.width / grid; // 21
+    const rows = canvas.height / grid; // 21
+
+    let snake;
+    let apple;
+    let dir;
+    let running = false;
+    let intervalId = null;
+    let gameSpeed = 7; // frames per second
+
+    function reset() {
+      snake = [{x: Math.floor(cols/2), y: Math.floor(rows/2)}];
+      // add initial tail
+      snake.push({x: snake[0].x - 1, y: snake[0].y});
+      dir = {x: 1, y: 0};
+      placeApple();
+      running = true;
+      scoreEl.textContent = 0;
+      updateLoop();
+    }
+
+    function placeApple(){
+      while(true){
+        const ax = Math.floor(Math.random() * cols);
+        const ay = Math.floor(Math.random() * rows);
+        if(!snake.some(s => s.x === ax && s.y === ay)){ apple = {x:ax,y:ay}; break; }
+      }
+    }
+
+    function drawCell(x,y,fillStyle){
+      ctx.fillStyle = fillStyle;
+      ctx.fillRect(x*grid+1, y*grid+1, grid-2, grid-2);
+    }
+
+    function draw(){
+      // background
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      // draw apple
+      drawCell(apple.x, apple.y, '#ff4757');
+      // draw snake
+      for(let i=0;i<snake.length;i++){
+        const s = snake[i];
+        drawCell(s.x,s.y, i===0 ? '#22c55e' : '#14a247');
+      }
+    }
+
+    function step(){
+      // move
+      const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+      // wrap-around behavior
+      if(head.x < 0) head.x = cols - 1;
+      if(head.x >= cols) head.x = 0;
+      if(head.y < 0) head.y = rows - 1;
+      if(head.y >= rows) head.y = 0;
+
+      // collision with self?
+      if(snake.some((s, idx) => idx!==0 && s.x === head.x && s.y === head.y)){
+        // game over
+        running = false;
+        window.clearInterval(intervalId);
+        alert('Game Over! Your score: ' + (snake.length - 2));
+        return;
+      }
+
+      snake.unshift(head);
+
+      // eat apple?
+      if(head.x === apple.x && head.y === apple.y){
+        // increase score, place new apple
+        scoreEl.textContent = snake.length - 2;
+        placeApple();
+      } else {
+        snake.pop();
+      }
+
+      draw();
+    }
+
+    function updateLoop(){
+      // clear previous
+      if(intervalId) window.clearInterval(intervalId);
+      intervalId = window.setInterval(step, 1000 / gameSpeed);
+      speedEl.textContent = gameSpeed;
+    }
+
+    // keyboard input
+    window.addEventListener('keydown', e => {
+      const key = e.key;
+      if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','W','A','S','D'].includes(key)){
+        e.preventDefault();
+      }
+      if(key === 'ArrowUp' || key === 'w' || key === 'W') setDir(0,-1);
+      if(key === 'ArrowDown' || key === 's' || key === 'S') setDir(0,1);
+      if(key === 'ArrowLeft' || key === 'a' || key === 'A') setDir(-1,0);
+      if(key === 'ArrowRight' || key === 'd' || key === 'D') setDir(1,0);
+    });
+
+    function setDir(x,y){
+      // prevent reverse
+      if(snake.length > 1 && snake[0].x + x === snake[1].x && snake[0].y + y === snake[1].y) return;
+      dir = {x,y};
+    }
+
+    // simple touch controls for mobile: detect swipe
+    let touchStart = null;
+    canvas.addEventListener('touchstart', e => { touchStart = e.touches[0]; });
+    canvas.addEventListener('touchmove', e => e.preventDefault(), {passive:false});
+    canvas.addEventListener('touchend', e => {
+      if(!touchStart) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - touchStart.clientX;
+      const dy = t.clientY - touchStart.clientY;
+      if(Math.abs(dx) > Math.abs(dy)){
+        if(dx > 20) setDir(1,0); else if(dx < -20) setDir(-1,0);
+      } else {
+        if(dy > 20) setDir(0,1); else if(dy < -20) setDir(0,-1);
+      }
+      touchStart = null;
+    });
+
+    // UI buttons
+    startBtn.addEventListener('click', () => { reset(); });
+    pauseBtn.addEventListener('click', () => {
+      if(!running){ running = true; updateLoop(); pauseBtn.textContent = 'Pause'; }
+      else { running = false; window.clearInterval(intervalId); pauseBtn.textContent = 'Resume'; }
+    });
+
+    // speed adjust by +/- keys
+    window.addEventListener('keydown', e => {
+      if(e.key === '+' || e.key === '='){ if(gameSpeed < 20) gameSpeed++; updateLoop(); }
+      if(e.key === '-' || e.key === '_'){ if(gameSpeed > 1) gameSpeed--; updateLoop(); }
+    });
+
+    // start small demo on load
+    reset();
+  </script>
+</body>
+</html>
+
